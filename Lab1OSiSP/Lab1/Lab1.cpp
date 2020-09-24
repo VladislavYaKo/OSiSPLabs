@@ -3,6 +3,7 @@
 
 #include "framework.h"
 #include <iostream>
+#include <string>
 //#include "wingdi.h""
 #include "Lab1.h"
 
@@ -93,6 +94,12 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //        В этой функции маркер экземпляра сохраняется в глобальной переменной, а также
 //        создается и выводится главное окно программы.
 //
+const int RB_LINE = 10000;
+const int RB_POLYLINE = 10001;
+const int RB_RECTANGLE = 10002;
+const int RB_POLYGON = 10003;
+const int RB_ELIPSE = 10004;
+const int RB_TEXT = 10005;
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Сохранить маркер экземпляра в глобальной переменной
@@ -100,12 +107,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
    
-   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Line", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10 , 10, 80, 20, hWnd, (HMENU)1000, hInstance, NULL);
-   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Polyline", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 40, 80, 20, hWnd, (HMENU)1001, hInstance, NULL);
-   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Rectangle", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 70, 80, 20, hWnd, (HMENU)1002, hInstance, NULL);
-   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Polygon", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 100, 80, 20, hWnd, (HMENU)1003, hInstance, NULL);
-   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Elipse", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 130, 80, 20, hWnd, (HMENU)1004, hInstance, NULL);
-   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Text", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 160, 80, 20, hWnd, (HMENU)1005, hInstance, NULL);
+   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Line", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10 , 10, 80, 20, hWnd, (HMENU)RB_LINE, hInstance, NULL);
+   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Polyline", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 40, 80, 20, hWnd, (HMENU)RB_POLYLINE, hInstance, NULL);
+   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Rectangle", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 70, 80, 20, hWnd, (HMENU)RB_RECTANGLE, hInstance, NULL);
+   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Polygon", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 100, 80, 20, hWnd, (HMENU)RB_POLYGON, hInstance, NULL);
+   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Elipse", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 130, 80, 20, hWnd, (HMENU)RB_ELIPSE, hInstance, NULL);
+   CreateWindowA((LPCSTR)"BUTTON", (LPCSTR)"Text", WS_CHILDWINDOW | WS_VISIBLE | BS_AUTORADIOBUTTON, 10, 160, 80, 20, hWnd, (HMENU)RB_TEXT, hInstance, NULL);
 
    if (!hWnd)
    {
@@ -129,8 +136,35 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 //
 
-POINTS mousePos;
-bool isNewLine = true;
+BOOL AddToPointsArr(POINT** arr, POINT elem, int prevElemNum)
+{
+    POINT* newArr;
+    if (*arr == NULL)
+        newArr = (POINT*)malloc(sizeof(POINT));
+    else
+        newArr = (POINT*)realloc((POINT*)(*arr), (prevElemNum + 1) * sizeof(POINT));
+    if (newArr == NULL)    
+        return 0;
+    *arr = newArr;
+    (*arr)[prevElemNum] = elem;
+    std::string str;  //Debug
+    str = std::to_string((*arr)[prevElemNum].x) + " " + std::to_string(prevElemNum+1) + "\n"; //Debug
+    OutputDebugStringA(str.c_str()); //Debug
+    return 1;
+}
+
+void ClearPointsArr(POINT** arr)
+{
+    free(*arr);
+    *arr = NULL;
+}
+
+POINTS prevMousePos;
+POINT *polygonPoints;
+bool isNewPolyline = true;
+bool isNewPolygon = true;
+int polygonPointsCount = 0;
+int curCheckedRB;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -139,25 +173,55 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONDOWN:
     {
         HDC hdc = GetDC(hWnd);
-        POINTS  curMousePos = MAKEPOINTS(lParam);        
-        if (IsDlgButtonChecked(hWnd, 1000) == BST_CHECKED)
-            mousePos = curMousePos;
-        if (IsDlgButtonChecked(hWnd, 1001) == BST_CHECKED)
-            if (isNewLine && (wParam & MK_SHIFT))
+        POINTS  curMousePos = MAKEPOINTS(lParam);  
+
+        switch (curCheckedRB)
+        {
+        case RB_LINE:
+            prevMousePos = curMousePos;
+            break;
+        case RB_POLYLINE:
+            if (isNewPolyline && (wParam & MK_SHIFT))
             {
-                mousePos = curMousePos;
-                isNewLine = false;
+                prevMousePos = curMousePos;
+                isNewPolyline = false;
             }
-            else if (!isNewLine && (wParam & MK_SHIFT))
+            else if (!isNewPolyline && (wParam & MK_SHIFT))
             {
-                MoveToEx(hdc, mousePos.x, mousePos.y, NULL);
+                MoveToEx(hdc, prevMousePos.x, prevMousePos.y, NULL);
                 LineTo(hdc, curMousePos.x, curMousePos.y);
-                mousePos = curMousePos;
+                prevMousePos = curMousePos;
             }
-        if (IsDlgButtonChecked(hWnd, 1002) == BST_CHECKED)
+            break;
+        case RB_RECTANGLE:
             Rectangle(hdc, curMousePos.x, curMousePos.y, curMousePos.x + 50, curMousePos.y + 50);
-        if (IsDlgButtonChecked(hWnd, 1004) == BST_CHECKED)
+            break;
+        case RB_POLYGON:  //To correct
+            if (isNewPolygon && (wParam & MK_SHIFT))
+            {
+                POINT bufPoint;
+                bufPoint.x = curMousePos.x;
+                bufPoint.y = curMousePos.y;
+
+                AddToPointsArr(&polygonPoints, bufPoint, 0);
+                polygonPointsCount = 1;
+                isNewPolygon = false;
+            }
+            else if (!isNewPolygon && (wParam & MK_SHIFT))
+            {
+                POINT bufPoint;
+                bufPoint.x = curMousePos.x;
+                bufPoint.y = curMousePos.y;
+
+                AddToPointsArr(&polygonPoints, bufPoint, polygonPointsCount);
+                polygonPointsCount++;
+            }
+            break;
+        case RB_ELIPSE:
             Ellipse(hdc, curMousePos.x, curMousePos.y, curMousePos.x + 50, curMousePos.y + 50);
+            break;
+        }          
+
         ReleaseDC(hWnd, hdc);
         break;
     }
@@ -165,10 +229,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         HDC hdc = GetDC(hWnd);
         POINTS  curMousePos = MAKEPOINTS(lParam);
-        if ((IsDlgButtonChecked(hWnd, 1000) == BST_CHECKED))
+        switch (curCheckedRB)
         {
-            MoveToEx(hdc, mousePos.x, mousePos.y, NULL);
+        case RB_LINE:
+            MoveToEx(hdc, prevMousePos.x, prevMousePos.y, NULL);
             LineTo(hdc, curMousePos.x, curMousePos.y);
+            break;
         }
         ReleaseDC(hWnd, hdc);
         break;
@@ -185,6 +251,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_EXIT:
             DestroyWindow(hWnd);
             break;
+        case RB_LINE:
+            curCheckedRB = RB_LINE;
+            break;
+        case RB_POLYLINE:
+            curCheckedRB = RB_POLYLINE;
+            break;
+        case RB_RECTANGLE:
+            curCheckedRB = RB_RECTANGLE;
+            break;
+        case RB_POLYGON:
+            curCheckedRB = RB_POLYGON;
+            break;
+        case RB_ELIPSE:
+            curCheckedRB = RB_ELIPSE;
+            break;
+        case RB_TEXT:
+            curCheckedRB = RB_TEXT;
+            break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -193,17 +277,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_KEYDOWN:
     {
         if (wParam == VK_SHIFT)
-            isNewLine = true;
+        {
+            if ((lParam & 0x40000000) == 0) //30ый бит lParam, флаг, была ли клавиша уже нажата
+            {
+                isNewPolyline = true;
+                isNewPolygon = true;
+                OutputDebugStringA("isNewPolygon = true\n"); //Debug
+            }
+        }
         break;
     }
-    
-    /*case WM_PAINT:
+    case WM_KEYUP:
     {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hWnd, &ps);
-        // TODO: Добавьте сюда любой код прорисовки, использующий HDC...
-        EndPaint(hWnd, &ps);
-    }*/
+        if (wParam == VK_SHIFT && IsDlgButtonChecked(hWnd, RB_POLYGON) == BST_CHECKED)
+        {
+            HDC hdc = GetDC(hWnd); 
+            std::string str;  //Debug
+            str = std::to_string((int)polygonPoints) + "\n"; //Debug
+            OutputDebugStringA(str.c_str()); //Debug
+            Polygon(hdc, (const POINT*)polygonPoints, polygonPointsCount);
+            ReleaseDC(hWnd, hdc);
+            ClearPointsArr(&polygonPoints);
+            polygonPointsCount = 0;
+        }
+        break;
+    }
     break;
     case WM_DESTROY:
         PostQuitMessage(0);
