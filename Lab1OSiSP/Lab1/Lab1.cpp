@@ -18,7 +18,6 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса глав�
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -55,8 +54,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     return (int) msg.wParam;
 }
-
-
 
 //
 //  ФУНКЦИЯ: MyRegisterClass()
@@ -136,7 +133,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 //
 
-BOOL AddToPointsArr(POINT** arr, POINT elem, int prevElemNum)
+BOOL AddToPointsArr(POINT** arr, POINT elem, int prevElemNum)  //Not in use
 {
     POINT* newArr;
     if (*arr == NULL)
@@ -147,22 +144,20 @@ BOOL AddToPointsArr(POINT** arr, POINT elem, int prevElemNum)
         return 0;
     *arr = newArr;
     (*arr)[prevElemNum] = elem;
-    std::string str;  //Debug
-    str = std::to_string((*arr)[prevElemNum].x) + " " + std::to_string(prevElemNum+1) + "\n"; //Debug
-    OutputDebugStringA(str.c_str()); //Debug
     return 1;
 }
 
-void ClearPointsArr(POINT** arr)
+void ClearPointsArr(POINT** arr)  
 {
     free(*arr);
     *arr = NULL;
 }
 
 POINTS prevMousePos;
-POINT *polygonPoints;
+POINT polygonFirstPoint;
 bool isNewPolyline = true;
 bool isNewPolygon = true;
+POINT* polygonPoints;
 int polygonPointsCount = 0;
 int curCheckedRB;
 
@@ -193,32 +188,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 prevMousePos = curMousePos;
             }
             break;
-        case RB_RECTANGLE:
-            Rectangle(hdc, curMousePos.x, curMousePos.y, curMousePos.x + 50, curMousePos.y + 50);
+        case RB_RECTANGLE: 
+            prevMousePos = curMousePos;
             break;
-        case RB_POLYGON:  //To correct
+        case RB_POLYGON:  
+            POINT bufPoint;
+            bufPoint.x = curMousePos.x;
+            bufPoint.y = curMousePos.y;
             if (isNewPolygon && (wParam & MK_SHIFT))
-            {
-                POINT bufPoint;
-                bufPoint.x = curMousePos.x;
-                bufPoint.y = curMousePos.y;
-
+            {               
                 AddToPointsArr(&polygonPoints, bufPoint, 0);
-                polygonPointsCount = 1;
+                polygonPointsCount++;
                 isNewPolygon = false;
             }
             else if (!isNewPolygon && (wParam & MK_SHIFT))
             {
-                POINT bufPoint;
-                bufPoint.x = curMousePos.x;
-                bufPoint.y = curMousePos.y;
-
                 AddToPointsArr(&polygonPoints, bufPoint, polygonPointsCount);
                 polygonPointsCount++;
             }
             break;
         case RB_ELIPSE:
-            Ellipse(hdc, curMousePos.x, curMousePos.y, curMousePos.x + 50, curMousePos.y + 50);
+            prevMousePos = curMousePos;
+            break;
+        case RB_TEXT:
+            prevMousePos = curMousePos;
             break;
         }          
 
@@ -235,6 +228,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             MoveToEx(hdc, prevMousePos.x, prevMousePos.y, NULL);
             LineTo(hdc, curMousePos.x, curMousePos.y);
             break;
+        case RB_RECTANGLE:
+            Rectangle(hdc, prevMousePos.x, prevMousePos.y, curMousePos.x, curMousePos.y);
+            break;
+        case RB_ELIPSE:
+            Ellipse(hdc, prevMousePos.x, prevMousePos.y, curMousePos.x, curMousePos.y);
+            break;
         }
         ReleaseDC(hWnd, hdc);
         break;
@@ -242,15 +241,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
     {
         int wmId = LOWORD(wParam);
-        // Разобрать выбор в меню:
         switch (wmId)
         {
-        case IDM_ABOUT:
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-            break;
-        case IDM_EXIT:
-            DestroyWindow(hWnd);
-            break;
         case RB_LINE:
             curCheckedRB = RB_LINE;
             break;
@@ -268,41 +260,72 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case RB_TEXT:
             curCheckedRB = RB_TEXT;
+            prevMousePos.x = 0;
+            prevMousePos.y = 0;
             break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
+        SetFocus(hWnd);
         break;
     }
     case WM_KEYDOWN:
     {
-        if (wParam == VK_SHIFT)
+        switch (wParam)
         {
+        case VK_SHIFT:
             if ((lParam & 0x40000000) == 0) //30ый бит lParam, флаг, была ли клавиша уже нажата
             {
                 isNewPolyline = true;
                 isNewPolygon = true;
-                OutputDebugStringA("isNewPolygon = true\n"); //Debug
+                polygonPointsCount = 0;
+            }
+            break;
+        }
+        break;
+    }
+    case WM_KEYUP:    
+        if (wParam == VK_SHIFT && curCheckedRB == RB_POLYGON)
+        {
+            HDC hdc = GetDC(hWnd);
+            SelectObject(hdc, GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hdc, RGB(0, 255, 0));
+            Polygon(hdc, polygonPoints, polygonPointsCount);
+            ClearPointsArr(&polygonPoints);
+            ReleaseDC(hWnd, hdc);
+        }
+        break;
+    case WM_CHAR:
+        switch (wParam)
+        {
+        case 0x08:  //Backspace
+            break;
+        case 0x0A:  //Linefeed
+            break;
+        case 0x1B:  //Escape
+            break;
+        case 0x09:  //Tab
+            break;
+        case 0x0D:  //Carriage return
+            break;
+        default:
+            if (curCheckedRB == RB_TEXT)
+            {
+                int caretX = prevMousePos.x;
+                int caretY = prevMousePos.y;
+                char curChar = (char)wParam;
+                int charWidth;
+
+                HDC hdc = GetDC(hWnd);
+                GetCharWidth32A(hdc, (UINT)curChar, (UINT)curChar, &charWidth);
+                TextOutA(hdc, caretX, caretY, &curChar, 1);
+                ReleaseDC(hWnd, hdc);
+
+                prevMousePos.x += charWidth;
+                break;
             }
         }
         break;
-    }
-    case WM_KEYUP:
-    {
-        if (wParam == VK_SHIFT && IsDlgButtonChecked(hWnd, RB_POLYGON) == BST_CHECKED)
-        {
-            HDC hdc = GetDC(hWnd); 
-            std::string str;  //Debug
-            str = std::to_string((int)polygonPoints) + "\n"; //Debug
-            OutputDebugStringA(str.c_str()); //Debug
-            Polygon(hdc, (const POINT*)polygonPoints, polygonPointsCount);
-            ReleaseDC(hWnd, hdc);
-            ClearPointsArr(&polygonPoints);
-            polygonPointsCount = 0;
-        }
-        break;
-    }
-    break;
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
@@ -310,24 +333,4 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
-}
-
-// Обработчик сообщений для окна "О программе".
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
-
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
 }
