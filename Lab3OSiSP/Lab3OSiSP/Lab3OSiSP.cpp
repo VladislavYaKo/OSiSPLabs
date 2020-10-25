@@ -8,20 +8,10 @@ int main()
 
     LPVOID mappingBuf = MapView(fileMapping);
 
-    CRITICAL_SECTION_ELEM* critSecElem = CreateCriticalSection(mappingBuf, "crit_sec1");
-    InitializeCriticalSection(&critSecElem->criticalSection);
-    CRITICAL_SECTION_ELEM *critSecElemTest = GetCriticalSection(mappingBuf, "crit_sec1");
-    /*CRITICAL_SECTION testCS;
-    InitializeCriticalSection(&testCS);
-
-    if (TryEnterCriticalSection(&critSecElem->criticalSection))
-    {
-        int debug = 11;
-        LeaveCriticalSection(&critSecElem->criticalSection);
-    }
-    else
-        std::cout << "Cannot enter critical section" << std::endl;*/
-    
+    CRITICAL_SECTION cs;
+    InitializeCriticalSection(&cs);
+    CRITICAL_SECTION_ELEM* critSecElem = CreateSharedCriticalSection(mappingBuf, cs, "crit_sec1");
+    CRITICAL_SECTION_ELEM *critSecElemTest = GetSharedCriticalSection(mappingBuf, "crit_sec1");    
 
     STARTUPINFOA si1;
     PROCESS_INFORMATION pi1;

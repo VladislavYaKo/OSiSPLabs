@@ -24,8 +24,6 @@ int main()
 
     CRITICAL_SECTION_ELEM* critSecElem = GetCriticalSection(mappingBuf, "crit_sec1");
 
-    int debug = 11;
-
     if (critSecElem != NULL)
     {
         if (TryEnterCriticalSection(&critSecElem->criticalSection))

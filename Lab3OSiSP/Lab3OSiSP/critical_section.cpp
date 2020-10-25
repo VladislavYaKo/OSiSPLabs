@@ -43,21 +43,22 @@ LPVOID MapView(HANDLE mapFile)
 }
 
 //csName legth should be <=20
-CRITICAL_SECTION_ELEM* CreateCriticalSection(LPVOID fileMapBuf, CRITICAL_SECTION_ELEM reqCritSecElem, const char *csName)
+CRITICAL_SECTION_ELEM* CreateSharedCriticalSection(LPVOID fileMapBuf, CRITICAL_SECTION reqCritSec, const char *csName)
 {
 	if (strlen(csName) > 20)
 		return NULL;
 
-	CRITICAL_SECTION_ELEM* cse = new CRITICAL_SECTION_ELEM();
+	CRITICAL_SECTION_ELEM* cse = new CRITICAL_SECTION_ELEM;
 	cse->isCreated = true;
 	strcpy_s(cse->sectionName, sizeof(cse->sectionName), csName);
+	cse->criticalSection = reqCritSec;
 	int freeElemIndex = FindReadyCSElem(fileMapBuf);
 
 	CopyMemory(&((CRITICAL_SECTION_ELEM*)fileMapBuf)[freeElemIndex], (PVOID)cse, sizeof(CRITICAL_SECTION_ELEM));
 	return cse;
 }
 
-CRITICAL_SECTION_ELEM* GetCriticalSection(LPVOID fileMapBuf, const char* csName)
+CRITICAL_SECTION_ELEM* GetSharedCriticalSection(LPVOID fileMapBuf, const char* csName)
 {	
 	for (int i = 0; i < csArrSize; i++)
 		if (strcmp( ((CRITICAL_SECTION_ELEM*)fileMapBuf)[i].sectionName, csName ) == 0)

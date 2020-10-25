@@ -11,8 +11,8 @@ typedef struct CriticalSectionElem {
 HANDLE InitializeFileMapping(const char* fileMappingName);
 HANDLE RetrieveFileMapping(const char* fileMappingName);
 LPVOID MapView(HANDLE mapFile);
-CRITICAL_SECTION_ELEM* CreateCriticalSection(LPVOID fileMapBuf, CRITICAL_SECTION_ELEM reqCritSecElem, const char* csName);
-CRITICAL_SECTION_ELEM* GetCriticalSection(LPVOID fileMapBuf, const char* csName);
+CRITICAL_SECTION_ELEM* CreateSharedCriticalSection(LPVOID fileMapBuf, CRITICAL_SECTION reqCritSecElem, const char* csName);
+CRITICAL_SECTION_ELEM* GetSharedCriticalSection(LPVOID fileMapBuf, const char* csName);
 void DeleteCriticalSection(LPVOID fileMapBuf, const char* csName);
 
 
