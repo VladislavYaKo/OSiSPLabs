@@ -34,7 +34,7 @@ HANDLE InitializeFileMapping(const char* fileMappingName)
 
 HANDLE RetrieveFileMapping(const char* fileMappingName)
 {
-	return OpenFileMappingA(FILE_MAP_ALL_ACCESS, TRUE, fileMappingName);
+	return OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, fileMappingName);
 }
 
 LPVOID MapView(HANDLE mapFile)
@@ -43,7 +43,7 @@ LPVOID MapView(HANDLE mapFile)
 }
 
 //csName legth should be <=20
-CRITICAL_SECTION_ELEM* CreateCriticalSection(LPVOID fileMapBuf, const char *csName)
+CRITICAL_SECTION_ELEM* CreateCriticalSection(LPVOID fileMapBuf, CRITICAL_SECTION_ELEM reqCritSecElem, const char *csName)
 {
 	if (strlen(csName) > 20)
 		return NULL;

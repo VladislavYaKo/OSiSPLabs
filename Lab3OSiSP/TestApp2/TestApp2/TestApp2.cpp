@@ -30,13 +30,11 @@ int main()
     {
         if (TryEnterCriticalSection(&critSecElem->criticalSection))
         {
-            std::cout << "TestApp. Critical section retrieved, name: " << critSecElem->sectionName << ". Owning thread address: " << critSecElem->criticalSection.OwningThread << std::endl;
+            std::cout << "TestApp2. Critical section retrieved, name: " << critSecElem->sectionName << ". Owning thread address: " << critSecElem->criticalSection.OwningThread << std::endl;
             LeaveCriticalSection(&critSecElem->criticalSection);
         }
         else
-        {
-            std::cout << "TestApp: cannot enter critical section. Debug info: " << critSecElem->criticalSection.DebugInfo << std::endl;
-        }
+            std::cout << "TestApp2: cannot enter critical section" << std::endl;
     }
     else
         std::cout << "Critical section null pointer" << std::endl;
