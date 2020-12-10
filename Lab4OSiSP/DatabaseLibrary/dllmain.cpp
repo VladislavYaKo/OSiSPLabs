@@ -124,11 +124,23 @@ HRESULT MakeupIndexByString(std::vector<DatabaseRow>& dbRowsList, std::vector<By
     }
 
     std::sort(reqStringIndex.begin(), reqStringIndex.end(), Comparator);
+    switch (indexingFlag)
+    {
+    case INDEXING_BY_SECOND_NAME:
+        secNameIndex = reqStringIndex;
+        break;
+    case INDEXING_BY_PHONE_NUMBER:
+        phoneNumIndex = reqStringIndex;
+        break;
+    case INDEXING_BY_STREET:
+        streetIndex = reqStringIndex;
+        break;
+    }
 
     return S_OK;
 }
 
-int BinarySearch(std::vector<ByStringIndex> reqStringIndex, int left, int right, std::wstring key)
+int BinarySearchOneElem(std::vector<ByStringIndex> reqStringIndex, int left, int right, std::wstring key)
 {
     int midd = 0;
     while (true)
@@ -145,8 +157,48 @@ int BinarySearch(std::vector<ByStringIndex> reqStringIndex, int left, int right,
         }
 
         if (left > right)          // если границы сомкнулись 
-            return {};
+            return -1;
     }
+}
+
+std::vector<DatabaseRow> BinarySearch(DatabaseRow dbRow)
+{
+    /*enum class SearchFieldType
+    {
+        secondName,
+        phoneNum,
+        street,
+        none,
+    };*/
+    std::vector<DatabaseRow> result;
+
+    std::vector<ByStringIndex> searchIndex;
+    std::wstring key = L"";
+    if (dbRow.secondName != L"")
+    {
+        searchIndex = secNameIndex;
+        key = dbRow.secondName;
+    }
+    else if (dbRow.phoneNum != L"")
+    {
+        searchIndex = phoneNumIndex;
+        key = dbRow.phoneNum;
+    }
+    else if (dbRow.street != L"")
+    {
+        searchIndex = streetIndex;
+        key = dbRow.street;
+    }
+
+    int foundInd;
+    if (searchIndex.size() > 0)
+        while ((foundInd = BinarySearchOneElem(searchIndex, 0, searchIndex.size() - 1, key)) >= 0)
+        {
+            result.push_back(*searchIndex[foundInd].correspondRow);
+            searchIndex.erase(searchIndex.begin() + foundInd);
+        }
+
+    return result;
 }
 
 

@@ -14,7 +14,7 @@
 #define INDEXING_BY_STREET 3
 //EXPORT HRESULT CALLBACK LoadDatabaseFromFile(const std::string fileName, std::vector<DatabaseRow> dbRowsList);
 
-struct DatabaseRow
+struct /*__declspec(dllexport)*/ DatabaseRow
 {
 	int ind;
 	std::wstring phoneNum;
@@ -39,4 +39,5 @@ std::vector<ByStringIndex> secNameIndex, phoneNumIndex, streetIndex;
 
 DllExport HRESULT LoadDatabaseFromFile(const std::wstring filePath, std::vector<DatabaseRow>& dbRowsList);
 DllExport HRESULT MakeupIndexByString(std::vector<DatabaseRow>& dbRowsList, std::vector<ByStringIndex>& reqStringIndex, int indexingFlag);
-DllExport int BinarySearch(std::vector<ByStringIndex> reqStringIndex, int left, int right, std::wstring key);
+int BinarySearchOneElem(std::vector<ByStringIndex> reqStringIndex, int left, int right, std::wstring key);
+DllExport std::vector<DatabaseRow> BinarySearch(DatabaseRow dbRow);

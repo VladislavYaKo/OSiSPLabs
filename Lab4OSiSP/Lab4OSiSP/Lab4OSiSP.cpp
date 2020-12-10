@@ -20,8 +20,8 @@
 const wchar_t* headers[] = {
         { L"Telephone" },
         { L"First name" },
+        { L"Patronymic" },
         { L"Last name" },
-        { L"Middle name" },
         { L"Street" },
         { L"House" },
         { L"Housing" },
@@ -33,16 +33,16 @@ HINSTANCE hInst;                                // текущий экземпл
 const WCHAR* szTitle = L"Lab4";
 const WCHAR* szWindowClass = L"MainWindowClass";
 
-#define IDC_LISTVIEW (HMENU)101
-#define IDC_TELEDIT (HMENU)102
-#define IDC_FNEDIT (HMENU)103
-#define IDC_MNEDIT (HMENU)104
-#define IDC_LNEDIT (HMENU)105
-#define IDC_HSEDIT (HMENU)106
-#define IDC_HSNGEDIT (HMENU)107
-#define IDC_FLTEDIT (HMENU)108
-#define IDC_STREDIT (HMENU)109
-#define IDC_SEARCHBTN (HMENU)110
+#define IDC_LISTVIEW (HMENU)1001
+#define IDC_TELEDIT (HMENU)1002
+#define IDC_FNEDIT (HMENU)1003
+#define IDC_MNEDIT (HMENU)1004
+#define IDC_LNEDIT (HMENU)1005
+#define IDC_HSEDIT (HMENU)1006
+#define IDC_HSNGEDIT (HMENU)1007
+#define IDC_FLTEDIT (HMENU)1008
+#define IDC_STREDIT (HMENU)1009
+#define IDC_SEARCHBTN (HMENU)1100
 
 typedef struct TMainWindow {
     HWND hWnd;
@@ -97,8 +97,12 @@ extern std::vector<DatabaseRow> dbRowsList;
 extern std::vector<ByStringIndex> secNameIndex, phoneNumIndex, streetIndex;
 
 typedef HRESULT(*LoadDBFromFileFunc)(const std::wstring, std::vector<DatabaseRow>&);
-typedef HRESULT(*MakeupIndexByStringFunc)(std::vector<DatabaseRow>&, std::vector<ByStringIndex>&, int indexingFlag);
-typedef int(*BinarysearchFunc)(std::vector<ByStringIndex>, int, int, std::wstring);
+typedef HRESULT(*MakeupIndexByStringFunc)(std::vector<DatabaseRow>&, std::vector<ByStringIndex>&, int);
+typedef std::vector<DatabaseRow>(*BinarysearchFunc)(DatabaseRow);
+
+LoadDBFromFileFunc loadDBFunc;
+MakeupIndexByStringFunc indByStringFunc;
+BinarysearchFunc binSearchFunc;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -110,9 +114,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     {
         return -1;
     }
-    LoadDBFromFileFunc loadDBFunc = (LoadDBFromFileFunc)::GetProcAddress(myDll, "LoadDatabaseFromFile");
-    MakeupIndexByStringFunc indByStringFunc = (MakeupIndexByStringFunc)::GetProcAddress(myDll, "MakeupIndexByString");
-    BinarysearchFunc binSearchFunc = (BinarysearchFunc)::GetProcAddress(myDll, "BinarySearch");
+    loadDBFunc = (LoadDBFromFileFunc)::GetProcAddress(myDll, "LoadDatabaseFromFile");
+    indByStringFunc = (MakeupIndexByStringFunc)::GetProcAddress(myDll, "MakeupIndexByString");
+    binSearchFunc = (BinarysearchFunc)::GetProcAddress(myDll, "BinarySearch");
 
     if (loadDBFunc == NULL || indByStringFunc == NULL)
     {
@@ -125,9 +129,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     indByStringFunc(dbRowsList, phoneNumIndex, INDEXING_BY_PHONE_NUMBER);
     indByStringFunc(dbRowsList, streetIndex, INDEXING_BY_STREET);
 
-
-
-
     // TODO: Разместите код здесь.
 
     // Инициализация глобальных строк
@@ -136,11 +137,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     INITCOMMONCONTROLSEX icc;
     icc.dwSize = sizeof icc;
     icc.dwICC = ICC_COOL_CLASSES | ICC_LISTVIEW_CLASSES;
-    InitCommonControlsEx(&icc);
-
-    //LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    //LoadStringW(hInstance, IDC_LAB4OSISP, szWindowClass, MAX_LOADSTRING);
-    
+    InitCommonControlsEx(&icc);    
 
     MyRegisterClass(hInstance);
 
@@ -245,19 +242,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
-//
-//  ФУНКЦИЯ: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  ЦЕЛЬ: Обрабатывает сообщения в главном окне.
-//
-//  WM_COMMAND  - обработать меню приложения
-//  WM_PAINT    - Отрисовка главного окна
-//  WM_DESTROY  - отправить сообщение о выходе и вернуться
-//
-//
+PMainWindow pSelf;
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    PMainWindow pSelf;
     if (message == WM_CREATE) {
         pSelf = (PMainWindow)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(TMainWindow));
         if (pSelf != NULL) {
@@ -295,40 +282,64 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    switch (message)
-    {
+    //PAINTSTRUCT ps;
+    //HDC hdc;
+
+    //pSelf = (PMainWindow)GetWindowLong(hWnd, 0);
+    if (!pSelf) {
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+
+    switch (message) {    
     case WM_COMMAND:
-        {
-            int wmId = LOWORD(wParam);
-            // Разобрать выбор в меню:
-            switch (wmId)
-            {
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-                break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
-                break;
-            default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
-            }
-        }
-        break;
-    case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Добавьте сюда любой код прорисовки, использующий HDC...
-            EndPaint(hWnd, &ps);
+        if (LOWORD(wParam) == (WORD)IDC_SEARCHBTN) {
+            wchar_t *phoneNumBuff = new wchar_t[1024];
+            wchar_t *firstNameBuff = new wchar_t[1024];
+            wchar_t *patronymicBuff = new wchar_t[1024];
+            wchar_t *secNameBuff = new wchar_t[1024];
+            wchar_t *streetBuff = new wchar_t[1024];
+            wchar_t *houseNumBuff = new wchar_t[1024];
+            wchar_t *buildingNumBuff = new wchar_t[1024];
+            wchar_t *apartmentNumBuff = new wchar_t[1024];
+
+            GetWindowText(pSelf->hTel, (LPWSTR)phoneNumBuff, 1024);
+            GetWindowText(pSelf->hFn, (LPWSTR)firstNameBuff, 1024);
+            GetWindowText(pSelf->hMn, (LPWSTR)patronymicBuff, 1024);
+            GetWindowText(pSelf->hLn, (LPWSTR)secNameBuff, 1024);
+            GetWindowText(pSelf->hStr, (LPWSTR)streetBuff, 1024);
+            GetWindowText(pSelf->hHs, (LPWSTR)houseNumBuff, 1024);
+            GetWindowText(pSelf->hHsng, (LPWSTR)buildingNumBuff, 1024);
+            GetWindowText(pSelf->hFlt, (LPWSTR)apartmentNumBuff, 1024);
+
+            std::wstring phoneNum(phoneNumBuff);
+            std::wstring firstName(firstNameBuff);
+            std::wstring patronymic(patronymicBuff);
+            std::wstring secName(secNameBuff);
+            std::wstring street(streetBuff);
+            std::wstring houseNum(houseNumBuff);
+            std::wstring buildingNum(buildingNumBuff);
+            std::wstring apartmentNum(apartmentNumBuff);
+
+            DatabaseRow dbr;//{ 0, phoneNum, secName, firstName, patronymic, street, std::stoi(houseNum), std::stoi(buildingNum), std::stoi(apartmentNum) };
+            dbr.ind = 0;
+            dbr.phoneNum = phoneNum;
+            dbr.firstName = firstName;
+            dbr.secondName = secName;
+            dbr.patronymic = patronymic;
+            dbr.street = street;
+            dbr.houseNum = std::stoi(houseNum);
+            dbr.buildingNum = std::stoi(buildingNum);
+            dbr.apartmentNum = std::stoi(apartmentNum);
+            UpdateList(pSelf->hListView, binSearchFunc(dbr));
         }
         break;
     case WM_DESTROY:
+        //phoneBook.clear();
+        HeapFree(GetProcessHeap(), 0, pSelf);
         PostQuitMessage(0);
         break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    return 0;
+    return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 // Обработчик сообщений для окна "О программе".
