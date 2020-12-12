@@ -20,12 +20,12 @@
 const wchar_t* headers[] = {
         { L"Telephone" },
         { L"First name" },
+        { L"Second name" },
         { L"Patronymic" },
-        { L"Last name" },
         { L"Street" },
         { L"House" },
-        { L"Housing" },
-        { L"Flat" }
+        { L"Building" },
+        { L"Apartment" }
 };
 
 // Глобальные переменные:
@@ -34,29 +34,30 @@ const WCHAR* szTitle = L"Lab4";
 const WCHAR* szWindowClass = L"MainWindowClass";
 
 #define IDC_LISTVIEW (HMENU)1001
-#define IDC_TELEDIT (HMENU)1002
+#define IDC_PHONEEDIT (HMENU)1002
 #define IDC_FNEDIT (HMENU)1003
-#define IDC_MNEDIT (HMENU)1004
-#define IDC_LNEDIT (HMENU)1005
+#define IDC_SNEDIT (HMENU)1004
+#define IDC_PATRONYMICEDIT (HMENU)1005
 #define IDC_HSEDIT (HMENU)1006
-#define IDC_HSNGEDIT (HMENU)1007
-#define IDC_FLTEDIT (HMENU)1008
-#define IDC_STREDIT (HMENU)1009
-#define IDC_SEARCHBTN (HMENU)1100
+#define IDC_BLDNGEDIT (HMENU)1007
+#define IDC_APARTMENTEDIT (HMENU)1008
+#define IDC_STREETEDIT (HMENU)1009
+#define IDC_SEARCHBTN (HMENU)1010
+#define IDC_REFRESHBTN (HMENU)1011
 
 typedef struct TMainWindow {
     HWND hWnd;
     HWND hListView;
-    HWND hTel;
-    HWND hFn;
-    HWND hMn;
-    HWND hLn;
-    HWND hHs;
-    HWND hHsng;
-    HWND hFlt;
-    HWND hStr;
+    HWND hPhoneNum;
+    HWND hFirstName;
+    HWND hSecondName;
+    HWND hPatronymic;
+    HWND hHouseNum;
+    HWND hBuildingNum;
+    HWND hApartmentNum;
+    HWND hStreet;
     HWND hSearch;
-
+    HWND hRefresh;
 }TMainWindow, * PMainWindow;
 
 std::wstring ExePath() {
@@ -98,11 +99,13 @@ extern std::vector<ByStringIndex> secNameIndex, phoneNumIndex, streetIndex;
 
 typedef HRESULT(*LoadDBFromFileFunc)(const std::wstring, std::vector<DatabaseRow>&);
 typedef HRESULT(*MakeupIndexByStringFunc)(std::vector<DatabaseRow>&, std::vector<ByStringIndex>&, int);
-typedef std::vector<DatabaseRow>(*BinarysearchFunc)(DatabaseRow);
+typedef std::vector<DatabaseRow>(*BinarySearchFunc)(DatabaseRow);
+typedef std::vector<DatabaseRow>(*LinearSearchFunc)(std::vector<DatabaseRow>, DatabaseRow);
 
 LoadDBFromFileFunc loadDBFunc;
 MakeupIndexByStringFunc indByStringFunc;
-BinarysearchFunc binSearchFunc;
+BinarySearchFunc binSearchFunc;
+LinearSearchFunc linearSearchFunc;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -116,7 +119,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
     loadDBFunc = (LoadDBFromFileFunc)::GetProcAddress(myDll, "LoadDatabaseFromFile");
     indByStringFunc = (MakeupIndexByStringFunc)::GetProcAddress(myDll, "MakeupIndexByString");
-    binSearchFunc = (BinarysearchFunc)::GetProcAddress(myDll, "BinarySearch");
+    binSearchFunc = (BinarySearchFunc)::GetProcAddress(myDll, "BinarySearch");
+    linearSearchFunc = (LinearSearchFunc)::GetProcAddress(myDll, "LinearSearch");
 
     if (loadDBFunc == NULL || indByStringFunc == NULL)
     {
@@ -250,28 +254,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (pSelf != NULL) {
             pSelf->hWnd = hWnd;
             pSelf->hListView = CreateListView(hWnd, 8);
-            pSelf->hTel = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
-                3, 3, 95, 20, hWnd, IDC_TELEDIT, hInst, NULL);
-            pSelf->hFn = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
+            pSelf->hPhoneNum = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
+                3, 3, 95, 20, hWnd, IDC_PHONEEDIT, hInst, NULL);
+            pSelf->hFirstName = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
                 103, 3, 95, 20, hWnd, IDC_FNEDIT, hInst, NULL);
-            pSelf->hMn = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
-                203, 3, 95, 20, hWnd, IDC_MNEDIT, hInst, NULL);
-            pSelf->hLn = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
-                303, 3, 95, 20, hWnd, IDC_LNEDIT, hInst, NULL);
-            pSelf->hStr = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
-                403, 3, 95, 20, hWnd, IDC_FLTEDIT, hInst, NULL);
-            pSelf->hHs = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_NUMBER,
+            pSelf->hSecondName = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
+                203, 3, 95, 20, hWnd, IDC_SNEDIT, hInst, NULL);
+            pSelf->hPatronymic = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
+                303, 3, 95, 20, hWnd, IDC_PATRONYMICEDIT, hInst, NULL);
+            pSelf->hStreet = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL,
+                403, 3, 95, 20, hWnd, IDC_STREETEDIT, hInst, NULL);
+            pSelf->hHouseNum = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_NUMBER,
                 503, 3, 95, 20, hWnd, IDC_HSEDIT, hInst, NULL);
-            pSelf->hHsng = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_NUMBER,
-                603, 3, 95, 20, hWnd, IDC_HSNGEDIT, hInst, NULL);
-            pSelf->hFlt = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_NUMBER,
-                703, 3, 75, 20, hWnd, IDC_FLTEDIT, hInst, NULL);
+            pSelf->hBuildingNum = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_NUMBER,
+                603, 3, 95, 20, hWnd, IDC_BLDNGEDIT, hInst, NULL);
+            pSelf->hApartmentNum = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_NUMBER,
+                703, 3, 75, 20, hWnd, IDC_APARTMENTEDIT, hInst, NULL);
             pSelf->hSearch = CreateWindow(WC_BUTTON, TEXT("Search"), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | BS_CENTER,
-                3, 25, 774, 23, hWnd, IDC_SEARCHBTN, hInst, NULL);
+                3, 25, 700, 23, hWnd, IDC_SEARCHBTN, hInst, NULL);
+            pSelf->hRefresh = CreateWindow(WC_BUTTON, TEXT("Refresh"), WS_CHILD | WS_OVERLAPPED | WS_EX_CLIENTEDGE | WS_VISIBLE | WS_BORDER | BS_CENTER,
+                703, 25, 74, 23, hWnd, IDC_REFRESHBTN, hInst, NULL);
 
-            SetWindowText(pSelf->hHs, L"0");
-            SetWindowText(pSelf->hHsng, L"0");
-            SetWindowText(pSelf->hFlt, L"0");
+            SetWindowText(pSelf->hHouseNum, L"0");
+            SetWindowText(pSelf->hBuildingNum, L"0");
+            SetWindowText(pSelf->hApartmentNum, L"0");
 
             
             UpdateList(pSelf->hListView, dbRowsList);
@@ -302,14 +308,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             wchar_t *buildingNumBuff = new wchar_t[1024];
             wchar_t *apartmentNumBuff = new wchar_t[1024];
 
-            GetWindowText(pSelf->hTel, (LPWSTR)phoneNumBuff, 1024);
-            GetWindowText(pSelf->hFn, (LPWSTR)firstNameBuff, 1024);
-            GetWindowText(pSelf->hMn, (LPWSTR)patronymicBuff, 1024);
-            GetWindowText(pSelf->hLn, (LPWSTR)secNameBuff, 1024);
-            GetWindowText(pSelf->hStr, (LPWSTR)streetBuff, 1024);
-            GetWindowText(pSelf->hHs, (LPWSTR)houseNumBuff, 1024);
-            GetWindowText(pSelf->hHsng, (LPWSTR)buildingNumBuff, 1024);
-            GetWindowText(pSelf->hFlt, (LPWSTR)apartmentNumBuff, 1024);
+            GetWindowText(pSelf->hPhoneNum, (LPWSTR)phoneNumBuff, 1024);
+            GetWindowText(pSelf->hFirstName, (LPWSTR)firstNameBuff, 1024);
+            GetWindowText(pSelf->hSecondName, (LPWSTR)secNameBuff, 1024);
+            GetWindowText(pSelf->hPatronymic, (LPWSTR)patronymicBuff, 1024);
+            GetWindowText(pSelf->hStreet, (LPWSTR)streetBuff, 1024);
+            GetWindowText(pSelf->hHouseNum, (LPWSTR)houseNumBuff, 1024);
+            GetWindowText(pSelf->hBuildingNum, (LPWSTR)buildingNumBuff, 1024);
+            GetWindowText(pSelf->hApartmentNum, (LPWSTR)apartmentNumBuff, 1024);
 
             std::wstring phoneNum(phoneNumBuff);
             std::wstring firstName(firstNameBuff);
@@ -320,7 +326,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             std::wstring buildingNum(buildingNumBuff);
             std::wstring apartmentNum(apartmentNumBuff);
 
-            DatabaseRow dbr;//{ 0, phoneNum, secName, firstName, patronymic, street, std::stoi(houseNum), std::stoi(buildingNum), std::stoi(apartmentNum) };
+            DatabaseRow dbr;
             dbr.ind = 0;
             dbr.phoneNum = phoneNum;
             dbr.firstName = firstName;
@@ -328,9 +334,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             dbr.patronymic = patronymic;
             dbr.street = street;
             dbr.houseNum = std::stoi(houseNum);
+            if (dbr.houseNum == 0)
+                dbr.houseNum = -1;
             dbr.buildingNum = std::stoi(buildingNum);
+            if (dbr.buildingNum == 0)
+                dbr.buildingNum = -1;
             dbr.apartmentNum = std::stoi(apartmentNum);
-            UpdateList(pSelf->hListView, binSearchFunc(dbr));
+            if (dbr.apartmentNum == 0)
+                dbr.apartmentNum = -1;
+            if (dbr.phoneNum != L"" || dbr.secondName != L"" || dbr.street != L"")
+            {
+                std::vector<DatabaseRow> rowsBuf = binSearchFunc(dbr);
+                UpdateList(pSelf->hListView, linearSearchFunc(rowsBuf, dbr));
+            }
+            else
+                UpdateList(pSelf->hListView, linearSearchFunc(dbRowsList, dbr));
+        }
+        else if (LOWORD(wParam) == (WORD)IDC_REFRESHBTN) {
+            UpdateList(pSelf->hListView, dbRowsList);
         }
         break;
     case WM_DESTROY:

@@ -163,13 +163,6 @@ int BinarySearchOneElem(std::vector<ByStringIndex> reqStringIndex, int left, int
 
 std::vector<DatabaseRow> BinarySearch(DatabaseRow dbRow)
 {
-    /*enum class SearchFieldType
-    {
-        secondName,
-        phoneNum,
-        street,
-        none,
-    };*/
     std::vector<DatabaseRow> result;
 
     std::vector<ByStringIndex> searchIndex;
@@ -197,6 +190,81 @@ std::vector<DatabaseRow> BinarySearch(DatabaseRow dbRow)
             result.push_back(*searchIndex[foundInd].correspondRow);
             searchIndex.erase(searchIndex.begin() + foundInd);
         }
+
+    return result;
+}
+
+std::vector<DatabaseRow> LinearSearchByField(std::vector<DatabaseRow> src, FieldType fieldType, std::wstring strKey = L"", int intKey = -1)
+{
+    std::vector<DatabaseRow> result = {};
+    for (int i = 0; i < src.size(); i++)
+    {
+        if (strKey != L"")
+            switch (fieldType)
+            {
+            case FieldType::phoneNum:
+                if (src[i].phoneNum == strKey)
+                    result.push_back(src[i]);
+                break;
+            case FieldType::secondName:
+                if (src[i].secondName == strKey)
+                    result.push_back(src[i]);
+                break;
+            case FieldType::firstName:
+                if (src[i].firstName == strKey)
+                    result.push_back(src[i]);
+                break;
+            case FieldType::patronymic:
+                if (src[i].patronymic == strKey)
+                    result.push_back(src[i]);
+                break;
+            case FieldType::street:
+                if (src[i].street == strKey)
+                    result.push_back(src[i]);
+                break;
+            }
+        else if(intKey >= 0)
+            switch (fieldType)
+            {
+            case FieldType::houseNum:
+                if (src[i].houseNum == intKey)
+                    result.push_back(src[i]);
+                break;
+            case FieldType::buildingNum:
+                if (src[i].buildingNum == intKey)
+                    result.push_back(src[i]);
+                break;
+            case FieldType::apartmentNum:
+                if (src[i].apartmentNum == intKey)
+                    result.push_back(src[i]);
+                break;
+            }
+    }
+
+    return result;
+}
+
+std::vector<DatabaseRow> LinearSearch(std::vector<DatabaseRow> db, DatabaseRow dbRow)
+{
+    std::vector<DatabaseRow> result = {};
+    std::vector<DatabaseRow> buf = db;
+    if (dbRow.phoneNum != L"")
+        buf = LinearSearchByField(buf, FieldType::phoneNum, dbRow.phoneNum);
+    if (dbRow.secondName != L"")
+        buf = LinearSearchByField(buf, FieldType::secondName, dbRow.secondName);
+    if (dbRow.firstName != L"")
+        buf = LinearSearchByField(buf, FieldType::firstName, dbRow.firstName);
+    if (dbRow.patronymic != L"")
+        buf = LinearSearchByField(buf, FieldType::patronymic, dbRow.patronymic);
+    if (dbRow.street != L"")
+        buf = LinearSearchByField(buf, FieldType::street, dbRow.street);
+    if (dbRow.houseNum >= 0)
+        buf = LinearSearchByField(buf, FieldType::houseNum, L"", dbRow.houseNum);
+    if (dbRow.apartmentNum >= 0)
+        buf = LinearSearchByField(buf, FieldType::apartmentNum, L"", dbRow.apartmentNum);
+    if (dbRow.buildingNum >= 0)
+        buf = LinearSearchByField(buf, FieldType::buildingNum, L"", dbRow.buildingNum);
+    result.insert(std::end(result), std::begin(buf), std::end(buf));
 
     return result;
 }
